@@ -1,0 +1,6 @@
+curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/store1 -d '{"key1": "val1"}'
+curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/store2 -d '{"key2": "val2", "key3": "val3"}'
+curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/store1 -d '{"key1": "val1", "key4": "val4"}'
+curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/store1 -d '{"key1": "val5"}'
+curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/store2 -d '{"key6": "val6", "key7": "val7"}'
+curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/store2 -d '{"key8": "val8"}'

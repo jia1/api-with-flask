@@ -1,8 +1,10 @@
 from flask import Flask, abort, jsonify, request
 from mongoengine import connect
 from flask_mongoengine import MongoEngine
-from secret import DB_NAME, DB_URI
+from time import time
+from json import loads
 from model import Store
+from secret import DB_NAME, DB_URI
 
 app = Flask(__name__)
 app.config['MONGODB_DB'] = DB_NAME
@@ -12,16 +14,19 @@ db = MongoEngine(app)
 
 @app.route('/', methods = ['GET'])
 def root():
-    return 'HOME'
+    collection = {}
+    for store in Store.objects().only('name', 'pairs'):
+        collection[store.name] = store.pairs
+    return jsonify(collection)
 
 @app.route('/<queryName>', methods = ['GET'])
 def index(queryName):
     gotStore, pairs = getPairs(queryName)
     if gotStore:
-        dictionary = {}
+        displayStore = {}
         for key in pairs:
-            dictionary[key] = getValue(pairs, key)
-        return jsonify(dictionary)
+            displayStore[key] = getValue(pairs, key)
+        return jsonify(displayStore)
     else:
         abort(404)
 
@@ -38,22 +43,21 @@ def show(queryName, queryKey):
 def create(queryName):
     if request.headers['Content-Type'] == 'application/json':
         requestJson = request.json
-        # VALIDATE
-        # abort(400)
-        gotStore, pairs = getPairs(queryName)
-        if gotStore:
-            if queryKey in pairs:
-                return 'UPDATE STORE, UPDATE VAL'
-            else:
-                return 'UPDATE STORE, INSERT KEY'
-        else:
-            return 'INSERT STORE, INSERT KEY'
+        # INSERT VALIDATION
+        gotStore, store = getStore(queryName)
+        if not gotStore:
+            Store.ensure_indexes()
+            Store(name = queryName, pairs = {}).save()
+        return upsertPairs(queryName, requestJson)
     else:
         abort(400)
 
-def getPairs(queryName):
+def getStore(queryName):
     store = Store.objects(name = queryName).first()
-    gotStore = (store != None)
+    return (store != None, store)
+
+def getPairs(queryName):
+    gotStore, store = getStore(queryName)
     if gotStore:
         pairs = store.pairs
     else:
@@ -73,6 +77,17 @@ def getValue(pairs, key, queryTime = None):
 
 def getLatestVersion(versions):
     return versions[0]
+
+# Store where name = storeName exists
+def upsertPairs(storeName, newPairs):
+    updatePairs = Store.objects(name = storeName).first().pairs
+    for key in newPairs:
+        if key not in updatePairs:
+            updatePairs[key] = []
+        timestamp = str(int(time()))
+        updatePairs[key].insert(0, {timestamp: newPairs[key]})
+    Store.objects(name = storeName).update(pairs = updatePairs)
+    return timestamp
 
 if __name__ == '__main__':
     app.run()
